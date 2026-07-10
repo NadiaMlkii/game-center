@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Snake Score Arena",
-  description: "Login, play Snake, and save scores to your profile.",
+  title: "Game Center",
+  description: "Play Snake and Memory Match in a mobile-first browser game center.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
