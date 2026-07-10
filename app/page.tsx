@@ -33,6 +33,10 @@ const DIRECTION_KEYS: Record<string, Direction> = {
   d: "right",
 };
 
+function isTextInputTarget(target: EventTarget | null) {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+}
+
 function pointsMatch(a: Point, b: Point) {
   return a.x === b.x && a.y === b.y;
 }
@@ -136,6 +140,14 @@ export default function Home() {
 
   useEffect(() => {
     function handleWindowKeyDown(event: KeyboardEvent) {
+      if (isTextInputTarget(event.target)) return;
+
+      if (event.key === "Enter" && profile && (!isPlaying || isGameOver)) {
+        event.preventDefault();
+        startGame();
+        return;
+      }
+
       const selectedDirection = DIRECTION_KEYS[event.key] ?? DIRECTION_KEYS[event.key.toLowerCase()];
 
       if (selectedDirection) {
@@ -227,7 +239,9 @@ export default function Home() {
             <h1 className="text-3xl font-bold tracking-tight">{profile.username}</h1>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button onClick={startGame}>{isGameOver ? "New game" : isPlaying ? "Playing" : "Start game"}</Button>
+            <div className="rounded-md bg-secondary px-4 py-2 text-sm font-medium">
+              {isGameOver ? "Press Enter for a new game" : isPlaying ? "Playing" : "Press Enter to start"}
+            </div>
             <Button variant="secondary" onClick={() => setIsPlaying((playing) => !playing)} disabled={isGameOver}>
               {isPlaying ? "Pause" : "Resume"}
             </Button>
