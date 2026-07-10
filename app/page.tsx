@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
 import { Brain, ChevronRight, Gamepad2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { clearPlayerProfile, loadPlayerProfile, PlayerProfile, savePlayerProfile } from "@/lib/profile";
 
 const games = [
   {
@@ -24,6 +29,53 @@ const games = [
 ];
 
 export default function Home() {
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    setProfile(loadPlayerProfile());
+  }, []);
+
+  function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedName = username.trim();
+    if (!trimmedName) return;
+
+    const nextProfile = { username: trimmedName };
+    savePlayerProfile(nextProfile);
+    setProfile(nextProfile);
+  }
+
+  function logout() {
+    clearPlayerProfile();
+    setProfile(null);
+    setUsername("");
+  }
+
+  if (!profile) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md border-primary/20 bg-card/90 shadow-2xl backdrop-blur">
+          <CardHeader>
+            <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+              <Sparkles className="h-4 w-4 text-primary" /> Game Center
+            </div>
+            <CardTitle className="text-3xl">Enter your username</CardTitle>
+            <CardDescription>Your name is used to keep scores for every game on this device.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={login}>
+              <Input autoFocus placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
+              <Button className="w-full" type="submit">
+                Continue
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center gap-6 px-4 py-8 sm:px-6 lg:px-8">
       <section className="rounded-[2rem] border bg-card/70 p-5 shadow-2xl backdrop-blur sm:p-8">
@@ -34,9 +86,12 @@ export default function Home() {
             </div>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">Choose your game</h1>
             <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-              Two lightweight browser games built for mobile first, with simple routes and no background work until you open a game.
+              Welcome, {profile.username}. Your scores are saved locally for each game.
             </p>
           </div>
+          <Button className="w-full sm:w-auto" onClick={logout} variant="outline">
+            Change user
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

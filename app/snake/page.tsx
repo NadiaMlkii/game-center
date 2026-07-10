@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Trophy, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { loadPlayerProfile } from "@/lib/profile";
 
 type Point = { x: number; y: number };
 type Direction = "up" | "down" | "left" | "right";
@@ -15,7 +15,7 @@ type Profile = { username: string; bestScore: number; totalPoints: number; games
 
 const BOARD_SIZE = 18;
 const POINTS_PER_DOT = 10;
-const STORAGE_KEY = "snake-game-profile";
+const STORAGE_KEY = "snake-game-profiles";
 const START_SNAKE: Point[] = [
   { x: 8, y: 9 },
   { x: 7, y: 9 },
@@ -56,16 +56,21 @@ function createDot(snake: Point[]) {
   return openCells[Math.floor(Math.random() * openCells.length)] ?? START_DOT;
 }
 
-function loadProfile(): Profile | null {
-  if (typeof window === "undefined") return null;
-
+function loadSnakeProfile(username: string): Profile {
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  return saved ? (JSON.parse(saved) as Profile) : null;
+  const profiles = saved ? (JSON.parse(saved) as Record<string, Profile>) : {};
+  return profiles[username] ?? { username, bestScore: 0, totalPoints: 0, gamesPlayed: 0, scores: [] };
+}
+
+function saveSnakeProfile(profile: Profile) {
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  const profiles = saved ? (JSON.parse(saved) as Record<string, Profile>) : {};
+  profiles[profile.username] = { ...profile, scores: profile.scores.slice(0, 20) };
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
 }
 
 export default function SnakePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [username, setUsername] = useState("");
   const [snake, setSnake] = useState<Point[]>(START_SNAKE);
   const [dot, setDot] = useState<Point>(START_DOT);
   const [direction, setDirection] = useState<Direction>("right");
@@ -79,12 +84,13 @@ export default function SnakePage() {
   const recentScores = useMemo(() => profile?.scores.slice(0, 5) ?? [], [profile]);
 
   useEffect(() => {
-    setProfile(loadProfile());
+    const playerProfile = loadPlayerProfile();
+    if (playerProfile) setProfile(loadSnakeProfile(playerProfile.username));
   }, []);
 
   useEffect(() => {
     if (profile) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...profile, scores: profile.scores.slice(0, 20) }));
+      saveSnakeProfile(profile);
     }
   }, [profile]);
 
@@ -161,20 +167,6 @@ export default function SnakePage() {
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
   }, [direction, isGameOver, isPlaying, profile]);
 
-  function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = username.trim();
-    if (!trimmedName) return;
-
-    setProfile({ username: trimmedName, bestScore: 0, totalPoints: 0, gamesPlayed: 0, scores: [] });
-  }
-
-  function logout() {
-    window.localStorage.removeItem(STORAGE_KEY);
-    setProfile(null);
-    resetGame();
-  }
-
   function resetGame() {
     savedFinalScoreRef.current = false;
     setSnake(START_SNAKE);
@@ -218,16 +210,13 @@ export default function SnakePage() {
             <Button asChild className="mb-3 w-fit" size="sm" variant="ghost">
               <Link href="/"><ArrowLeft className="h-4 w-4" /> Games</Link>
             </Button>
-            <CardTitle className="text-3xl">Snake Score Arena</CardTitle>
-            <CardDescription>Login with a username to play and save every score to your profile.</CardDescription>
+            <CardTitle className="text-3xl">Login required</CardTitle>
+            <CardDescription>Enter your username on the start page before playing Snake.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" onSubmit={login}>
-              <Input placeholder="Enter username" value={username} onChange={(event) => setUsername(event.target.value)} />
-              <Button className="w-full" type="submit">
-                Login and play
-              </Button>
-            </form>
+            <Button asChild className="w-full">
+              <Link href="/">Go to login</Link>
+            </Button>
           </CardContent>
         </Card>
       </main>
@@ -252,7 +241,7 @@ export default function SnakePage() {
             <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setIsPlaying((playing) => !playing)} disabled={isGameOver}>
               {isPlaying ? "Pause" : "Resume"}
             </Button>
-            <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>Logout</Button>
+            <Button asChild className="w-full sm:w-auto" variant="outline"><Link href="/">Games</Link></Button>
           </div>
         </div>
 

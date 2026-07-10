@@ -6,6 +6,7 @@ import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { loadPlayerProfile, PlayerProfile } from "@/lib/profile";
 
 type MemoryCard = {
   id: string;
@@ -19,7 +20,7 @@ type MemoryScore = {
   playedAt: string;
 };
 
-const STORAGE_KEY = "memory-match-scores";
+const STORAGE_KEY = "memory-match-score-profiles";
 const SYMBOLS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 function shuffle<T>(items: T[]) {
@@ -42,14 +43,21 @@ function createDeck(): MemoryCard[] {
   );
 }
 
-function loadScores(): MemoryScore[] {
-  if (typeof window === "undefined") return [];
-
+function loadScores(username: string): MemoryScore[] {
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  return saved ? (JSON.parse(saved) as MemoryScore[]) : [];
+  const scoreProfiles = saved ? (JSON.parse(saved) as Record<string, MemoryScore[]>) : {};
+  return scoreProfiles[username] ?? [];
+}
+
+function saveScores(username: string, scores: MemoryScore[]) {
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  const scoreProfiles = saved ? (JSON.parse(saved) as Record<string, MemoryScore[]>) : {};
+  scoreProfiles[username] = scores.slice(0, 10);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scoreProfiles));
 }
 
 export default function MemoryPage() {
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [cards, setCards] = useState<MemoryCard[]>(() => createDeck());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
@@ -65,7 +73,11 @@ export default function MemoryPage() {
   const bestScore = scores[0];
 
   useEffect(() => {
-    setScores(loadScores());
+    const playerProfile = loadPlayerProfile();
+    if (!playerProfile) return;
+
+    setProfile(playerProfile);
+    setScores(loadScores(playerProfile.username));
   }, []);
 
   useEffect(() => {
@@ -79,7 +91,7 @@ export default function MemoryPage() {
   }, [hasStarted, isComplete]);
 
   useEffect(() => {
-    if (!isComplete || !hasStarted || savedWinRef.current) return;
+    if (!isComplete || !hasStarted || !profile || savedWinRef.current) return;
 
     savedWinRef.current = true;
     setScores((currentScores) => {
@@ -87,10 +99,10 @@ export default function MemoryPage() {
         .sort((a, b) => a.moves - b.moves || a.seconds - b.seconds)
         .slice(0, 10);
 
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextScores));
+      saveScores(profile.username, nextScores);
       return nextScores;
     });
-  }, [hasStarted, isComplete, moves, seconds]);
+  }, [hasStarted, isComplete, moves, profile, seconds]);
 
   useEffect(() => {
     return () => {
@@ -138,6 +150,27 @@ export default function MemoryPage() {
     }, 550);
   }
 
+  if (!profile) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md border-primary/20 bg-card/90 backdrop-blur">
+          <CardHeader>
+            <Button asChild className="mb-3 w-fit" size="sm" variant="ghost">
+              <Link href="/"><ArrowLeft className="h-4 w-4" /> Games</Link>
+            </Button>
+            <CardTitle className="text-3xl">Login required</CardTitle>
+            <CardDescription>Enter your username on the start page before playing Memory Match.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <Link href="/">Go to login</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4 sm:py-6 lg:grid lg:grid-cols-[1fr_20rem] lg:gap-6 lg:px-8">
       <section className="flex flex-col gap-4">
@@ -149,6 +182,7 @@ export default function MemoryPage() {
             <div>
               <p className="text-sm text-muted-foreground">Memory / Matching Game</p>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Find the pairs</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Playing as {profile.username}</p>
             </div>
             <Button className="w-full sm:w-auto" onClick={resetGame} variant="secondary">
               <RotateCcw className="h-4 w-4" /> New game
