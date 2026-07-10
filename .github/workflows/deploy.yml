@@ -68,7 +68,7 @@ jobs:
                 image: ${IMAGE_NAME}:latest
                 restart: unless-stopped
                 ports:
-                  - "3000:3000"
+                  - "8094:3000"
             EOF
 
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin

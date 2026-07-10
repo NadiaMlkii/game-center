@@ -3,4 +3,4 @@ services:
     image: ghcr.io/nadiamlkii/game-center:latest
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8094:3000"
