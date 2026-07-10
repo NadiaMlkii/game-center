@@ -158,7 +158,7 @@ export default function Home() {
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  });
+  }, [direction, isGameOver, isPlaying, profile]);
 
   function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -231,36 +231,39 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_22rem] lg:px-8">
-      <section className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-3xl border bg-card/70 p-5 shadow-2xl backdrop-blur md:flex-row md:items-center md:justify-between">
-          <div>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4 sm:py-6 lg:grid lg:grid-cols-[1fr_22rem] lg:gap-6 lg:px-8">
+      <section className="flex flex-col gap-4 lg:gap-6">
+        <div className="flex flex-col gap-3 rounded-2xl border bg-card/70 p-4 shadow-2xl backdrop-blur sm:rounded-3xl sm:p-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Welcome back</p>
-            <h1 className="text-3xl font-bold tracking-tight">{profile.username}</h1>
+            <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{profile.username}</h1>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-md bg-secondary px-4 py-2 text-sm font-medium">
-              {isGameOver ? "Press Enter for a new game" : isPlaying ? "Playing" : "Press Enter to start"}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            <div className="col-span-2 rounded-md bg-secondary px-3 py-2 text-center text-sm font-medium sm:col-span-1 sm:px-4">
+              {isGameOver ? "Tap board or press Enter for a new game" : isPlaying ? "Playing" : "Tap board or press Enter to start"}
             </div>
-            <Button variant="secondary" onClick={() => setIsPlaying((playing) => !playing)} disabled={isGameOver}>
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setIsPlaying((playing) => !playing)} disabled={isGameOver}>
               {isPlaying ? "Pause" : "Resume"}
             </Button>
-            <Button variant="outline" onClick={logout}>Logout</Button>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={logout}>Logout</Button>
           </div>
         </div>
 
         <Card className="overflow-hidden border-primary/20 bg-slate-950/80">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 px-4 py-4 sm:px-6">
             <div>
-              <CardTitle className="text-2xl">Current Score: {score}</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">Current Score: {score}</CardTitle>
               <CardDescription>{dots} dots eaten at {POINTS_PER_DOT} points each</CardDescription>
             </div>
             {isGameOver ? <span className="rounded-full bg-destructive px-3 py-1 text-sm font-semibold">Game over</span> : null}
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-4 sm:px-6 sm:pb-6">
             <div
               aria-label="Snake game board"
-              className="grid aspect-square w-full rounded-2xl border border-primary/30 bg-slate-900 p-2 outline-none"
+              className="mx-auto grid aspect-square w-full max-w-[min(92vw,34rem)] touch-none rounded-2xl border border-primary/30 bg-slate-900 p-1.5 outline-none sm:p-2 lg:max-w-none"
+              onClick={() => {
+                if (!isPlaying || isGameOver) startGame();
+              }}
               onKeyDown={handleBoardKeyDown}
               style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))` }}
               tabIndex={0}
@@ -272,7 +275,7 @@ export default function Home() {
                 const isDot = pointsMatch(dot, cell);
 
                 return (
-                  <div key={`${cell.x}-${cell.y}`} className="aspect-square p-0.5">
+                  <div key={`${cell.x}-${cell.y}`} className="aspect-square p-px sm:p-0.5">
                     <div
                       className={
                         isHead
@@ -289,19 +292,19 @@ export default function Home() {
               })}
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-2 sm:hidden">
+            <div className="mx-auto mt-4 grid max-w-xs grid-cols-3 gap-2 sm:hidden">
               <span />
-              <Button variant="secondary" onClick={() => changeDirection("up")}>Up</Button>
+              <Button className="h-12" variant="secondary" onClick={() => changeDirection("up")}>Up</Button>
               <span />
-              <Button variant="secondary" onClick={() => changeDirection("left")}>Left</Button>
-              <Button variant="secondary" onClick={() => changeDirection("down")}>Down</Button>
-              <Button variant="secondary" onClick={() => changeDirection("right")}>Right</Button>
+              <Button className="h-12" variant="secondary" onClick={() => changeDirection("left")}>Left</Button>
+              <Button className="h-12" variant="secondary" onClick={() => changeDirection("down")}>Down</Button>
+              <Button className="h-12" variant="secondary" onClick={() => changeDirection("right")}>Right</Button>
             </div>
           </CardContent>
         </Card>
       </section>
 
-      <aside className="space-y-6">
+      <aside className="grid gap-4 sm:grid-cols-2 lg:block lg:space-y-6">
         <Card className="bg-card/80 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><UserRound className="h-5 w-5" /> Profile</CardTitle>
