@@ -265,7 +265,10 @@ export default function Home() {
                 if (!isPlaying || isGameOver) startGame();
               }}
               onKeyDown={handleBoardKeyDown}
-              style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))` }}
+              style={{
+                gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
+              }}
               tabIndex={0}
             >
               {Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, index) => {
@@ -275,7 +278,7 @@ export default function Home() {
                 const isDot = pointsMatch(dot, cell);
 
                 return (
-                  <div key={`${cell.x}-${cell.y}`} className="aspect-square p-px sm:p-0.5">
+                  <div key={`${cell.x}-${cell.y}`} className="min-h-0 min-w-0 p-px sm:p-0.5">
                     <div
                       className={
                         isHead
