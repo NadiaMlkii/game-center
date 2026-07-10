@@ -1,8 +1,5 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: game-center:prod
+    image: ghcr.io/nadiamlkii/game-center:latest
     ports:
       - "3000:3000"
