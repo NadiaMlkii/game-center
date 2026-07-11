@@ -6,6 +6,7 @@ import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { loadLocalScores, saveLocalScore } from "@/lib/local-scores";
 import { loadPlayerProfile, PlayerProfile } from "@/lib/profile";
 
 type MemoryCard = {
@@ -15,13 +16,15 @@ type MemoryCard = {
 };
 
 type MemoryScore = {
+  username: string;
+  score: number;
   moves: number;
   seconds: number;
   playedAt: string;
 };
 
-const STORAGE_KEY = "memory-match-score-profiles";
 const SYMBOLS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+const GAME = "memory-match";
 
 function shuffle<T>(items: T[]) {
   const nextItems = [...items];
@@ -43,17 +46,33 @@ function createDeck(): MemoryCard[] {
   );
 }
 
-function loadScores(username: string): MemoryScore[] {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  const scoreProfiles = saved ? (JSON.parse(saved) as Record<string, MemoryScore[]>) : {};
-  return scoreProfiles[username] ?? [];
+function calculateMemoryScore(moves: number, seconds: number) {
+  return Math.max(0, 10000 - moves * 100 - seconds * 10);
 }
 
-function saveScores(username: string, scores: MemoryScore[]) {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  const scoreProfiles = saved ? (JSON.parse(saved) as Record<string, MemoryScore[]>) : {};
-  scoreProfiles[username] = scores.slice(0, 10);
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scoreProfiles));
+type MemoryScoresResponse = {
+  playerBest: MemoryScore | null;
+  scores: MemoryScore[];
+};
+
+async function loadScores(username: string): Promise<MemoryScoresResponse> {
+  const response = await fetch(`/api/memory-scores?username=${encodeURIComponent(username)}`);
+  if (!response.ok) throw new Error("Could not load scores.");
+
+  return (await response.json()) as MemoryScoresResponse;
+}
+
+async function saveScore(username: string, moves: number, seconds: number): Promise<MemoryScore> {
+  const response = await fetch("/api/memory-scores", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, moves, seconds }),
+  });
+
+  if (!response.ok) throw new Error("Could not save score.");
+
+  const data = (await response.json()) as { score: MemoryScore };
+  return data.score;
 }
 
 export default function MemoryPage() {
@@ -64,20 +83,31 @@ export default function MemoryPage() {
   const [seconds, setSeconds] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
   const [scores, setScores] = useState<MemoryScore[]>([]);
+  const [playerBestScore, setPlayerBestScore] = useState<MemoryScore | null>(null);
+  const [scoreError, setScoreError] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const savedWinRef = useRef(false);
   const checkTimeoutRef = useRef<number | null>(null);
 
   const matchedCount = useMemo(() => cards.filter((card) => card.matched).length, [cards]);
   const isComplete = matchedCount === cards.length;
-  const bestScore = scores[0];
 
   useEffect(() => {
     const playerProfile = loadPlayerProfile();
     if (!playerProfile) return;
 
     setProfile(playerProfile);
-    setScores(loadScores(playerProfile.username));
+    const localScores = loadLocalScores(GAME) as MemoryScore[];
+    setScores(localScores);
+    setPlayerBestScore(localScores.find((score) => score.username === playerProfile.username) ?? null);
+
+    loadScores(playerProfile.username)
+      .then((data) => {
+        setScores(data.scores);
+        setPlayerBestScore(data.playerBest);
+        setScoreError("");
+      })
+      .catch(() => setScoreError(""));
   }, []);
 
   useEffect(() => {
@@ -94,14 +124,25 @@ export default function MemoryPage() {
     if (!isComplete || !hasStarted || !profile || savedWinRef.current) return;
 
     savedWinRef.current = true;
-    setScores((currentScores) => {
-      const nextScores = [{ moves, seconds, playedAt: new Date().toISOString() }, ...currentScores]
-        .sort((a, b) => a.moves - b.moves || a.seconds - b.seconds)
-        .slice(0, 10);
+    const localScore = {
+      username: profile.username,
+      score: calculateMemoryScore(moves, seconds),
+      moves,
+      seconds,
+      playedAt: new Date().toISOString(),
+    };
+    const localScores = saveLocalScore(GAME, localScore) as MemoryScore[];
+    setScores(localScores);
+    setPlayerBestScore(localScores.find((score) => score.username === profile.username) ?? localScore);
 
-      saveScores(profile.username, nextScores);
-      return nextScores;
-    });
+    saveScore(profile.username, moves, seconds)
+      .then(() => loadScores(profile.username))
+      .then((data) => {
+        setScores(data.scores);
+        setPlayerBestScore(data.playerBest);
+        setScoreError("");
+      })
+      .catch(() => setScoreError(""));
   }, [hasStarted, isComplete, moves, profile, seconds]);
 
   useEffect(() => {
@@ -233,13 +274,15 @@ export default function MemoryPage() {
         <Card className="bg-card/80 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> Best Result</CardTitle>
-            <CardDescription>Your best local memory score</CardDescription>
+            <CardDescription>Your best memory score</CardDescription>
           </CardHeader>
           <CardContent>
-            {bestScore ? (
+            {playerBestScore ? (
               <div className="rounded-lg bg-secondary px-4 py-3">
-                <p className="text-2xl font-bold">{bestScore.moves} moves</p>
-                <p className="text-sm text-muted-foreground">Finished in {bestScore.seconds} seconds</p>
+                <p className="text-2xl font-bold">{playerBestScore.score} points</p>
+                <p className="text-sm text-muted-foreground">
+                  {playerBestScore.moves} moves in {playerBestScore.seconds} seconds
+                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Complete a game to save a score.</p>
@@ -249,18 +292,21 @@ export default function MemoryPage() {
 
         <Card className="bg-card/80 backdrop-blur">
           <CardHeader>
-            <CardTitle>Recent Scores</CardTitle>
-            <CardDescription>Only the best 10 are stored.</CardDescription>
+            <CardTitle>Top Players</CardTitle>
+            <CardDescription>Ranked by calculated score.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {scoreError ? <p className="text-sm text-destructive">{scoreError}</p> : null}
             {scores.length ? (
-              scores.slice(0, 5).map((entry) => (
-                <div className="flex items-center justify-between rounded-lg bg-secondary p-3" key={entry.playedAt}>
+              scores.slice(0, 10).map((entry, index) => (
+                <div className="flex items-center justify-between rounded-lg bg-secondary p-3" key={`${entry.username}-${entry.playedAt}`}>
                   <div>
-                    <p className="font-semibold">{entry.moves} moves</p>
-                    <p className="text-xs text-muted-foreground">{entry.seconds} seconds</p>
+                    <p className="font-semibold">#{index + 1} {entry.username}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.moves} moves, {entry.seconds} seconds
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{new Date(entry.playedAt).toLocaleDateString()}</p>
+                  <p className="text-sm font-bold">{entry.score}</p>
                 </div>
               ))
             ) : (

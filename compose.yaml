@@ -1,6 +1,28 @@
 services:
   app:
-    image: ghcr.io/nadiamlkii/game-center:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: game-center:local
     restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://game_center:game_center@db:5432/game_center
     ports:
       - "8094:3000"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: game_center
+      POSTGRES_USER: game_center
+      POSTGRES_PASSWORD: game@center#123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

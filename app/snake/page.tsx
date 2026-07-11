@@ -6,14 +6,20 @@ import { ArrowLeft, Trophy, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { loadLocalScores, LocalGameScore, saveLocalScore } from "@/lib/local-scores";
 import { loadPlayerProfile } from "@/lib/profile";
 
 type Point = { x: number; y: number };
 type Direction = "up" | "down" | "left" | "right";
 type ScoreEntry = { score: number; dots: number; playedAt: string };
 type Profile = { username: string; bestScore: number; totalPoints: number; gamesPlayed: number; scores: ScoreEntry[] };
+type SnakeScoresResponse = {
+  playerBest: LocalGameScore | null;
+  scores: LocalGameScore[];
+};
 
 const BOARD_SIZE = 18;
+const GAME = "snake";
 const POINTS_PER_DOT = 10;
 const STORAGE_KEY = "snake-game-profiles";
 const START_SNAKE: Point[] = [
@@ -69,6 +75,23 @@ function saveSnakeProfile(profile: Profile) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
 }
 
+async function loadSnakeScores(username: string): Promise<SnakeScoresResponse> {
+  const response = await fetch(`/api/snake-scores?username=${encodeURIComponent(username)}`);
+  if (!response.ok) throw new Error("Could not load Snake scores.");
+
+  return (await response.json()) as SnakeScoresResponse;
+}
+
+async function saveSnakeScore(username: string, score: number, dots: number) {
+  const response = await fetch("/api/snake-scores", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, score, dots }),
+  });
+
+  if (!response.ok) throw new Error("Could not save Snake score.");
+}
+
 export default function SnakePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [snake, setSnake] = useState<Point[]>(START_SNAKE);
@@ -78,6 +101,7 @@ export default function SnakePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [dots, setDots] = useState(0);
+  const [topScores, setTopScores] = useState<LocalGameScore[]>([]);
   const savedFinalScoreRef = useRef(false);
 
   const score = dots * POINTS_PER_DOT;
@@ -85,7 +109,13 @@ export default function SnakePage() {
 
   useEffect(() => {
     const playerProfile = loadPlayerProfile();
-    if (playerProfile) setProfile(loadSnakeProfile(playerProfile.username));
+    setTopScores(loadLocalScores(GAME));
+    if (!playerProfile) return;
+
+    setProfile(loadSnakeProfile(playerProfile.username));
+    loadSnakeScores(playerProfile.username)
+      .then((data) => setTopScores(data.scores))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -136,12 +166,18 @@ export default function SnakePage() {
     if (!isGameOver || !profile || savedFinalScoreRef.current) return;
 
     savedFinalScoreRef.current = true;
+    const playedAt = new Date().toISOString();
+    setTopScores(saveLocalScore(GAME, { username: profile.username, score, dots, playedAt }));
+    saveSnakeScore(profile.username, score, dots)
+      .then(() => loadSnakeScores(profile.username))
+      .then((data) => setTopScores(data.scores))
+      .catch(() => undefined);
     setProfile({
       ...profile,
       bestScore: Math.max(profile.bestScore, score),
       totalPoints: profile.totalPoints + score,
       gamesPlayed: profile.gamesPlayed + 1,
-      scores: [{ score, dots, playedAt: new Date().toISOString() }, ...profile.scores].slice(0, 20),
+      scores: [{ score, dots, playedAt }, ...profile.scores].slice(0, 20),
     });
   }, [dots, isGameOver, profile, score]);
 
@@ -334,6 +370,28 @@ export default function SnakePage() {
               ))
             ) : (
               <p className="text-sm text-muted-foreground">No saved games yet. Start playing to build your profile.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/80 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Top Players</CardTitle>
+            <CardDescription>Ranked by highest Snake score.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {topScores.length ? (
+              topScores.map((entry, index) => (
+                <div className="flex items-center justify-between rounded-lg bg-secondary p-3" key={`${entry.username}-${entry.playedAt}`}>
+                  <div>
+                    <p className="font-semibold">#{index + 1} {entry.username}</p>
+                    <p className="text-xs text-muted-foreground">{entry.dots ?? 0} dots eaten</p>
+                  </div>
+                  <p className="text-sm font-bold">{entry.score}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No Snake scores yet.</p>
             )}
           </CardContent>
         </Card>

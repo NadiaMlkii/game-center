@@ -61,7 +61,7 @@ export default function Home() {
               <Sparkles className="h-4 w-4 text-primary" /> Game Center
             </div>
             <CardTitle className="text-3xl">Enter your username</CardTitle>
-            <CardDescription>Your name is used to keep scores for every game on this device.</CardDescription>
+            <CardDescription>Your name is used to keep scores for each game.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={login}>
@@ -86,7 +86,7 @@ export default function Home() {
             </div>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">Choose your game</h1>
             <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-              Welcome, {profile.username}. Your scores are saved locally for each game.
+              Welcome, {profile.username}. Choose a game and build your score history.
             </p>
           </div>
           <Button className="w-full sm:w-auto" onClick={logout} variant="outline">
